@@ -1,0 +1,16 @@
+[package]
+name = "cardea-core"
+description = "Cardea data model, validation and pure generators"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+serde_path_to_error.workspace = true
+
+[lints]
+workspace = true

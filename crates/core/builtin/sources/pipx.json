@@ -1,0 +1,6 @@
+{ "id": "pipx", "name": "Python applications (pipx)", "scope": "home",
+  "setup": "",
+  "install": "pipx install \"$1${2:+==$2}\"",
+  "remove": "pipx uninstall \"$1\"",
+  "update": "pipx upgrade \"$1\"",
+  "list": "pipx list --short" }

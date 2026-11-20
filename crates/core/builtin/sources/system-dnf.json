@@ -1,0 +1,6 @@
+{ "id": "system", "name": "System packages (dnf)", "scope": "image",
+  "setup": "",
+  "install": "dnf install -y \"$1${2:+-$2}\"",
+  "remove": "dnf remove -y \"$1\"",
+  "update": "dnf upgrade -y \"$1\"",
+  "list": "rpm -qa --qf '%{NAME} %{VERSION}-%{RELEASE}\\n'" }

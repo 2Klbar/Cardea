@@ -1,0 +1,6 @@
+{ "id": "mise", "name": "Language runtimes (mise)", "scope": "home",
+  "setup": "command -v mise >/dev/null || curl -fsSL https://mise.run | sh",
+  "install": "mise use -g \"$1@${2:-latest}\"",
+  "remove": "mise unuse -g \"$1\"",
+  "update": "mise upgrade \"$1\"",
+  "list": "mise ls --global --current | awk '{print $1, $2}'" }

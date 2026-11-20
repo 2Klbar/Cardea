@@ -1,0 +1,23 @@
+[package]
+name = "cardea-daemon"
+description = "Cardea daemon: socket server, tasks, state machine"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+cardea-core.workspace = true
+cardea-proto.workspace = true
+cardea-engine.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+chrono.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "net", "io-util", "sync", "time", "macros", "signal"] }
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

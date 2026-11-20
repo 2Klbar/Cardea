@@ -1,0 +1,6 @@
+{ "id": "npm", "name": "npm (global, in the home)", "scope": "home",
+  "setup": "npm config set prefix \"$HOME/.npm-global\"",
+  "install": "npm install -g \"$1@${2:-latest}\"",
+  "remove": "npm uninstall -g \"$1\"",
+  "update": "npm install -g \"$1@latest\"",
+  "list": "npm ls -g --depth=0 --parseable --long | sed -n 's|.*:\\(.*\\)@\\([^@]*\\)$|\\1 \\2|p'" }

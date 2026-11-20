@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "id": "empty",
+  "name": "Empty",
+  "description": "A minimal sandbox: the base image and a shell, nothing else.",
+  "icon": { "letter": "E", "color": "#6b7280" },
+  "base_image": "docker.io/library/debian:trixie-slim",
+  "trust": "work"
+}

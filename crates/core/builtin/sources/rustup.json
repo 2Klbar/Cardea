@@ -1,0 +1,6 @@
+{ "id": "rustup", "name": "Rust toolchains (rustup)", "scope": "home",
+  "setup": "command -v rustup >/dev/null || curl --proto '=https' --tlsv1.2 -fsSL https://sh.rustup.rs | sh -s -- -y --profile default --default-toolchain none",
+  "install": "rustup toolchain install \"$1\" && { rustup default >/dev/null 2>&1 || rustup default \"$1\"; }",
+  "remove": "rustup toolchain uninstall \"$1\"",
+  "update": "rustup update \"$1\"",
+  "list": "rustup toolchain list | while read -r t _; do echo \"$t $(rustc +\"$t\" --version | cut -d' ' -f2)\"; done" }

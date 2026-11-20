@@ -1,0 +1,6 @@
+{ "id": "cargo", "name": "cargo install", "scope": "home",
+  "setup": "",
+  "install": "cargo install --locked \"$1\" ${2:+--version \"$2\"}",
+  "remove": "cargo uninstall \"$1\"",
+  "update": "cargo install --locked \"$1\"",
+  "list": "cargo install --list | sed -n 's/^\\([^ ]*\\) v\\([^:]*\\):$/\\1 \\2/p'" }

@@ -1,0 +1,6 @@
+{ "id": "system", "name": "System packages (pacman)", "scope": "image",
+  "setup": "",
+  "install": "pacman -S --noconfirm --needed \"$1\"",
+  "remove": "pacman -R --noconfirm \"$1\"",
+  "update": "pacman -S --noconfirm \"$1\"",
+  "list": "pacman -Q" }
