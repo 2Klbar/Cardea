@@ -42,6 +42,7 @@ impl Client {
             version: 0,
             daemon_version: String::new(),
             demo: false,
+            engine_error: None,
         };
         let mut client = Client {
             reader,

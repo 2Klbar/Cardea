@@ -72,6 +72,10 @@ pub trait Engine: Send + Sync {
     fn stop<'a>(&'a self, id: &'a str, progress: Progress) -> BoxFuture<'a, Result<(), String>>;
     /// Removes the sandbox's image and containers.
     fn remove<'a>(&'a self, id: &'a str) -> BoxFuture<'a, Result<(), String>>;
+    /// Why this engine cannot run sandboxes, if it cannot.
+    fn problem(&self) -> Option<String> {
+        None
+    }
 }
 
 /// The engine used until the Podman engine exists: every operation fails with a clear message.
@@ -93,5 +97,8 @@ impl Engine for Unavailable {
     fn remove<'a>(&'a self, _: &'a str) -> BoxFuture<'a, Result<(), String>> {
         // Nothing was ever created by this engine.
         Box::pin(async { Ok(()) })
+    }
+    fn problem(&self) -> Option<String> {
+        Some(UNAVAILABLE.to_owned())
     }
 }

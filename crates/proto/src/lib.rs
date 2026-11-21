@@ -157,6 +157,16 @@ pub enum Event {
         id: String,
         line: String,
     },
+    /// Resource use of a running sandbox, about once a second.
+    Stats {
+        id: String,
+        /// Percent of one CPU core: 250 is two and a half cores.
+        cpu: f32,
+        /// Bytes.
+        memory: u64,
+        /// Bytes; `None` when there is no limit.
+        memory_limit: Option<u64>,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -165,6 +175,9 @@ pub struct Hello {
     pub daemon_version: String,
     /// The daemon runs the demo engine.
     pub demo: bool,
+    /// Why no sandbox can start (Podman missing…); `None` when the engine works.
+    #[serde(default)]
+    pub engine_error: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

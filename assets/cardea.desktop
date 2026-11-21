@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Cardea
+GenericName=Sandbox manager
+Comment=Create, run and manage isolated sandboxes
+Exec=cardea-gui
+Icon=cardea
+Terminal=false
+Categories=System;Utility;
+StartupWMClass=cardea

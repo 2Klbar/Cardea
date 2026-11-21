@@ -107,6 +107,24 @@ impl Engine for DemoEngine {
     }
 }
 
+/// Simulated CPU (percent of one core) and memory (bytes) of a running demo sandbox at `tick` seconds: a
+/// calm baseline with a burst now and then, different for each sandbox.
+pub fn stats(id: &str, tick: u64) -> (f32, u64) {
+    let seed = id
+        .bytes()
+        .fold(7u64, |h, b| h.wrapping_mul(31).wrapping_add(u64::from(b)));
+    // A cheap hash of (seed, tick) in 0..1.
+    let noise = |t: u64| {
+        let x = (seed ^ t.wrapping_mul(0x9E37_79B9_7F4A_7C15)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+        (x >> 40) as f32 / (1u64 << 24) as f32
+    };
+    let burst = if (tick + seed) % 20 < 3 { 30.0 } else { 0.0 };
+    let cpu = 2.0 + 6.0 * noise(tick) + burst;
+    let base = 600 + seed % 900;
+    let memory = (base + (tick % 120) * 3 + (noise(tick / 5) * 80.0) as u64) << 20;
+    (cpu, memory)
+}
+
 /// A task the daemon resumes when it seeds a demo sandbox in a transient state.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Resume {
@@ -212,6 +230,15 @@ mod tests {
         assert_eq!(seeds.len(), 7);
         for s in &seeds {
             cardea_core::validate::config(&s.config, Kind::Sandbox).unwrap();
+        }
+    }
+
+    #[test]
+    fn stats_stay_in_range() {
+        for t in 0..200 {
+            let (cpu, mem) = stats("claude", t);
+            assert!((2.0..=38.0).contains(&cpu));
+            assert!(mem > 500 << 20 && mem < 2 << 30);
         }
     }
 

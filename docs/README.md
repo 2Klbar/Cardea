@@ -13,6 +13,7 @@ desktop that you grant it.
 | [Concepts](concepts.md) | Sandboxes, profiles, trust levels, capabilities, apps, services, packages, lifecycle |
 | [Configuration files](configuration.md) | The JSON files, their defaults and what is checked |
 | [Commands](commands.md) | The `cardea` command line |
+| [The manager window](manager.md) | `cardea-gui`: pages, dialogs, keyboard |
 | [Network firewall](network.md) | Zones, allowlists and blocklists, rejected or dropped traffic, warnings |
 | [Desktop compatibility](desktop-compatibility.md) | Wayland and X11 sessions, supported desktops, running X11 apps safely |
 | [Security model](security.md) | What a sandbox protects you from, and what it does not |

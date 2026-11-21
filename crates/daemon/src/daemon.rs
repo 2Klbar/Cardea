@@ -131,6 +131,7 @@ impl Daemon {
         });
         if demo {
             daemon.seed()?;
+            tokio::spawn(daemon.clone().demo_stats());
         }
         Ok(daemon)
     }
@@ -180,6 +181,31 @@ impl Daemon {
         Ok(())
     }
 
+    /// Simulated resource use of the running sandboxes, once a second (the Podman engine streams real stats).
+    async fn demo_stats(self: Arc<Self>) {
+        let mut tick = 0u64;
+        loop {
+            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+            tick += 1;
+            let running: Vec<(String, Option<u32>)> = self
+                .lock()
+                .sandboxes
+                .values()
+                .filter(|e| e.state == State::Running)
+                .map(|e| (e.config.id.clone(), e.config.security.ram_limit_gb))
+                .collect();
+            for (id, limit) in running {
+                let (cpu, memory) = demo::stats(&id, tick);
+                self.emit(Event::Stats {
+                    id,
+                    cpu,
+                    memory,
+                    memory_limit: limit.map(|gb| u64::from(gb) << 30),
+                });
+            }
+        }
+    }
+
     fn lock(&self) -> MutexGuard<'_, Inner> {
         self.inner.lock().expect("daemon state lock")
     }
@@ -225,6 +251,7 @@ impl Daemon {
             version: cardea_proto::PROTOCOL_VERSION,
             daemon_version: cardea_core::VERSION.to_owned(),
             demo: self.demo,
+            engine_error: self.engine.problem(),
         }
     }
 
