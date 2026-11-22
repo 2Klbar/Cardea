@@ -2,7 +2,7 @@
   "schema": 1,
   "id": "claude",
   "name": "Claude",
-  "description": "Claude Desktop and Claude Code, with FreeCAD, Firefox and development tools (Node, Go, Rust, Python, C/C++).",
+  "description": "Claude Desktop and Claude Code, with FreeCAD, Firefox and development tools (Node, Go, Rust, Python, Java, PHP, C#/.NET, C/C++).",
   "icon": { "letter": "C", "color": "#c8643b" },
   "base_image": "docker.io/library/debian:trixie-slim",
   "trust": "work",
@@ -34,11 +34,21 @@
     { "source": "system", "name": "libssl-dev" },
     { "source": "system", "name": "libpam0g-dev" },
     { "source": "system", "name": "cmake" },
+    { "source": "system", "name": "valgrind" },
     { "source": "system", "name": "shellcheck" },
     { "source": "system", "name": "python3" },
     { "source": "system", "name": "python3-venv" },
     { "source": "system", "name": "python3-pip" },
     { "source": "system", "name": "pipx" },
+    { "source": "system", "name": "openjdk-21-jdk" },
+    { "source": "system", "name": "maven" },
+    { "source": "system", "name": "php-cli" },
+    { "source": "system", "name": "php-curl" },
+    { "source": "system", "name": "php-mbstring" },
+    { "source": "system", "name": "php-xml" },
+    { "source": "system", "name": "php-zip" },
+    { "source": "system", "name": "composer" },
+    { "source": "system", "name": "libicu76" },
     { "source": "system", "name": "gnupg" },
     { "source": "system", "name": "libsecret-1-0" },
     { "source": "system", "name": "desktop-file-utils" },
@@ -54,10 +64,13 @@
     { "source": "system", "name": "virtiofsd", "when": { "capability": "kvm" } },
     { "source": "mise", "name": "node", "version": "lts" },
     { "source": "mise", "name": "go", "version": "latest" },
+    { "source": "mise", "name": "gradle", "version": "latest" },
+    { "source": "mise", "name": "dotnet", "version": "latest" },
     { "source": "rustup", "name": "stable" },
     { "source": "cargo", "name": "cargo-audit" },
     { "source": "cargo", "name": "cargo-deny" },
-    { "source": "pipx", "name": "graphifyy" }
+    { "source": "pipx", "name": "graphifyy" },
+    { "source": "npm", "name": "codeburn" }
   ],
   "setup": {
     "build": "",
@@ -66,17 +79,18 @@
   },
   "apps": [
     { "id": "claude-desktop", "name": "Claude", "exec": ["claude-desktop"], "toolkit": "electron",
-      "pinned": true, "desktop_entry": true },
+      "pinned": true, "desktop_entry": true, "schemes": ["claude"] },
     { "id": "claude-code", "name": "Claude Code", "exec": ["claude"], "toolkit": "terminal",
       "pinned": true, "desktop_entry": true },
     { "id": "freecad", "name": "FreeCAD", "exec": ["freecad"], "toolkit": "qt",
       "wants": ["gpu"], "pinned": true, "desktop_entry": true },
     { "id": "firefox", "name": "Firefox", "exec": ["firefox-esr"], "toolkit": "other",
-      "env": { "MOZ_ENABLE_WAYLAND": "1" } }
+      "env": { "MOZ_ENABLE_WAYLAND": "1" }, "pinned": true, "desktop_entry": true }
   ],
   "services": [
     { "id": "remote-control", "name": "Remote Control",
       "exec": ["claude", "remote-control", "--name", "{folder}"], "per_folder": true }
   ],
+  "links": { "outgoing": true },
   "appearance": { "theme": "dark", "languages": ["fr", "en"] }
 }

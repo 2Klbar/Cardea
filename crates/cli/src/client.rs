@@ -1,7 +1,9 @@
 //! Blocking client of the control socket. Starts the daemon when none answers.
 
 use std::collections::VecDeque;
-use std::io::{BufRead, BufReader, ErrorKind, Write};
+use std::io::{BufRead, BufReader, ErrorKind, IoSliceMut, Write};
+use std::mem::MaybeUninit;
+use std::os::fd::OwnedFd;
 use std::os::unix::net::UnixStream;
 use std::os::unix::process::CommandExt;
 use std::process::{Command, Stdio};
@@ -11,6 +13,7 @@ use cardea_daemon::paths::Paths;
 use cardea_proto::{
     Error, ErrorCode, Event, Hello, Incoming, Method, PROTOCOL_VERSION, Request, Response,
 };
+use rustix::net::{RecvAncillaryBuffer, RecvAncillaryMessage, RecvFlags};
 use serde::de::DeserializeOwned;
 
 pub struct Client {
@@ -41,7 +44,6 @@ impl Client {
         let hello = Hello {
             version: 0,
             daemon_version: String::new(),
-            demo: false,
             engine_error: None,
         };
         let mut client = Client {
@@ -72,10 +74,55 @@ impl Client {
     }
 
     pub fn call<T: DeserializeOwned>(&mut self, method: Method) -> Result<T, Error> {
-        let local = |message: String| Error {
-            code: ErrorCode::Internal,
-            message,
-        };
+        self.send(method)?;
+        loop {
+            match self.read().map_err(local)? {
+                Incoming::Event { event } => self.events.push_back(event),
+                Incoming::Response(r) => return answer(r),
+            }
+        }
+    }
+
+    /// A call whose answer carries a file descriptor (`exec`). Only on a connection with no subscription.
+    pub fn call_fd<T: DeserializeOwned>(
+        &mut self,
+        method: Method,
+    ) -> Result<(T, Option<OwnedFd>), Error> {
+        assert!(
+            self.reader.buffer().is_empty(),
+            "nothing may be pending before a descriptor"
+        );
+        self.send(method)?;
+        let (mut line, mut fd) = (Vec::new(), None);
+        while !line.ends_with(b"\n") {
+            let mut buf = [0u8; 4096];
+            let mut space = [MaybeUninit::uninit(); rustix::cmsg_space!(ScmRights(1))];
+            let mut control = RecvAncillaryBuffer::new(&mut space);
+            let got = rustix::net::recvmsg(
+                self.reader.get_ref(),
+                &mut [IoSliceMut::new(&mut buf)],
+                &mut control,
+                RecvFlags::CMSG_CLOEXEC,
+            )
+            .map_err(|e| local(format!("lost the daemon: {e}")))?;
+            for message in control.drain() {
+                if let RecvAncillaryMessage::ScmRights(fds) = message {
+                    fd = fd.or(fds.into_iter().next());
+                }
+            }
+            if got.bytes == 0 {
+                return Err(local("the daemon closed the connection".into()));
+            }
+            line.extend_from_slice(&buf[..got.bytes]);
+        }
+        match serde_json::from_slice(&line) {
+            Ok(Incoming::Response(r)) => answer(r).map(|t| (t, fd)),
+            Ok(Incoming::Event { .. }) => Err(local("unexpected event from the daemon".into())),
+            Err(e) => Err(local(format!("unexpected message from the daemon: {e}"))),
+        }
+    }
+
+    fn send(&mut self, method: Method) -> Result<(), Error> {
         self.next += 1;
         let mut line = serde_json::to_vec(&Request {
             id: self.next,
@@ -85,17 +132,7 @@ impl Client {
         line.push(b'\n');
         self.writer
             .write_all(&line)
-            .map_err(|e| local(format!("lost the daemon: {e}")))?;
-        loop {
-            match self.read().map_err(local)? {
-                Incoming::Event { event } => self.events.push_back(event),
-                Incoming::Response(Response::Ok { result, .. }) => {
-                    return serde_json::from_value(result)
-                        .map_err(|e| local(format!("unexpected answer: {e}")));
-                }
-                Incoming::Response(Response::Err { error, .. }) => return Err(error),
-            }
-        }
+            .map_err(|e| local(format!("lost the daemon: {e}")))
     }
 
     /// The next event, after `subscribe` or `logs` with `follow`.
@@ -108,6 +145,22 @@ impl Client {
                 return Ok(event);
             }
         }
+    }
+}
+
+fn local(message: String) -> Error {
+    Error {
+        code: ErrorCode::Internal,
+        message,
+    }
+}
+
+fn answer<T: DeserializeOwned>(r: Response) -> Result<T, Error> {
+    match r {
+        Response::Ok { result, .. } => {
+            serde_json::from_value(result).map_err(|e| local(format!("unexpected answer: {e}")))
+        }
+        Response::Err { error, .. } => Err(error),
     }
 }
 

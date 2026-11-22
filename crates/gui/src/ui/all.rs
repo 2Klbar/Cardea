@@ -283,7 +283,7 @@ impl App {
                     &format!("empty:create:{}", p.id),
                     "Create",
                     if i == 0 { Kind::Primary } else { Kind::Normal },
-                    Some(Message::Create(p.id.clone())),
+                    Some(Message::WizardOpen(Some(p.id.clone()))),
                 ),
             ]
             .spacing(6);
@@ -300,6 +300,7 @@ impl App {
             )
             .max_width(440),
             profiles.wrap(),
+            self.welcome_card(),
         ]
         .spacing(10)
         .padding([40, 0])

@@ -1,0 +1,7 @@
+#!/bin/sh
+# Enables, for every user, Podman's API socket and the Cardea daemon; both start with the next desktop login.
+set -e
+if [ "$1" = configure ] && command -v systemctl >/dev/null; then
+    systemctl --global enable podman.socket cardea.service || true
+    echo "Cardea: log out and in again (or run: systemctl --user daemon-reload && systemctl --user start podman.socket cardea)."
+fi

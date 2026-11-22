@@ -43,4 +43,7 @@ Podman's is ever made visible inside a sandbox.
 | The `podman.socket` user unit enabled | The daemon talks to Podman through its API. |
 | Sub-UID and sub-GID ranges for your user (`/etc/subuid`, `/etc/subgid`) | Needed by rootless Podman and by isolated user IDs. |
 
+The Debian package installs Podman and its helpers and enables `podman.socket` ([Installation](install.md)).
+`cardea doctor` checks all of these and says what to do for each one that is missing.
+
 Cardea never needs root and never changes your system firewall.

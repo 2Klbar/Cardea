@@ -6,10 +6,14 @@ use crate::model::{Config, Kind, Source};
 /// Ids of the built-in sources. `system` follows the base image's package manager.
 pub const SOURCE_IDS: [&str; 6] = ["system", "npm", "cargo", "rustup", "mise", "pipx"];
 
-const PROFILES: [(&str, &str); 2] = [
-    ("claude", include_str!("../builtin/profiles/claude.json")),
-    ("empty", include_str!("../builtin/profiles/empty.json")),
-];
+const PROFILES: [(&str, &str); 1] = [("empty", include_str!("../builtin/profiles/empty.json"))];
+
+/// The Claude profile of the repository's `profiles/` folder. Not built in: users download and import it;
+/// it is embedded only for tests.
+pub fn example_claude() -> Config {
+    load::config(include_str!("../../../profiles/claude.json"), Kind::Profile)
+        .expect("profiles/claude.json is valid (tested)")
+}
 
 /// The system package manager of a base image.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -81,8 +85,21 @@ mod tests {
     }
 
     #[test]
+    fn repository_profiles_load() {
+        let p = load::config(
+            include_str!("../../../profiles/empty-debian.json"),
+            Kind::Profile,
+        )
+        .unwrap();
+        assert_eq!(p.id, "empty-debian");
+        assert!(profile(&p.id).is_none());
+    }
+
+    #[test]
     fn claude_profile() {
-        let p = profile("claude").unwrap();
+        let p = example_claude();
+        assert_eq!(p.id, "claude");
+        assert!(profile("claude").is_none());
         assert_eq!(p.trust, Trust::Work);
         assert!(p.capabilities.gpu && !p.capabilities.kvm && p.security.seccomp);
         assert!(

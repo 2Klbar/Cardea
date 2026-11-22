@@ -1,0 +1,62 @@
+flush ruleset
+table inet cardea {
+	set host4 { type ipv4_addr; flags interval; auto-merge; elements = { 169.254.1.2, 192.168.1.42 }; }
+	set host6 { type ipv6_addr; flags interval; auto-merge; elements = { fd00::42 }; }
+	set lan4 { type ipv4_addr; flags interval; auto-merge; elements = { 10.0.0.0/8, 100.64.0.0/10, 169.254.0.0/16, 172.16.0.0/12, 192.168.0.0/16, 192.168.1.0/24, 224.0.0.0/4, 255.255.255.255 }; }
+	set lan6 { type ipv6_addr; flags interval; auto-merge; elements = { fc00::/7, fd00::/64, fe80::/10, ff00::/8 }; }
+	set dns4 { type ipv4_addr; flags interval; auto-merge; elements = { 169.254.1.1 }; }
+	set dns6 { type ipv6_addr; flags interval; auto-merge; }
+	counter blocked_host { }
+	set blocked_host4 { type ipv4_addr; flags timeout; timeout 600s; size 256; }
+	set blocked_host6 { type ipv6_addr; flags timeout; timeout 600s; size 256; }
+	counter blocked_lan { }
+	set blocked_lan4 { type ipv4_addr; flags timeout; timeout 600s; size 256; }
+	set blocked_lan6 { type ipv6_addr; flags timeout; timeout 600s; size 256; }
+	counter blocked_wan { }
+	set blocked_wan4 { type ipv4_addr; flags timeout; timeout 600s; size 256; }
+	set blocked_wan6 { type ipv6_addr; flags timeout; timeout 600s; size 256; }
+	chain output {
+		type filter hook output priority filter; policy drop;
+		oif "lo" accept
+		ct state established,related accept
+		ip daddr @dns4 meta l4proto { tcp, udp } th dport 53 accept
+		ip6 daddr @dns6 meta l4proto { tcp, udp } th dport 53 accept
+		ip daddr @host4 goto host
+		ip6 daddr @host6 goto host
+		ip daddr @lan4 goto lan
+		ip6 daddr @lan6 goto lan
+		goto wan
+	}
+	chain host {
+		ip daddr { 169.254.1.2, 192.168.1.42 } tcp dport 5432 accept
+		ip6 daddr { fd00::42 } tcp dport 5432 accept
+		goto host_blocked
+	}
+	chain host_blocked {
+		counter name "blocked_host"
+		meta nfproto ipv4 update @blocked_host4 { ip daddr }
+		meta nfproto ipv6 update @blocked_host6 { ip6 daddr }
+		drop
+	}
+	chain lan {
+		ip daddr { 192.168.1.0/24 } meta l4proto { tcp, udp } th dport 631 goto lan_blocked
+		ip6 daddr { fd00::7 } meta l4proto udp goto lan_blocked
+		accept
+	}
+	chain lan_blocked {
+		counter name "blocked_lan"
+		meta nfproto ipv4 update @blocked_lan4 { ip daddr }
+		meta nfproto ipv6 update @blocked_lan6 { ip6 daddr }
+		drop
+	}
+	chain wan {
+		ip daddr { 203.0.113.0/24 } goto wan_blocked
+		accept
+	}
+	chain wan_blocked {
+		counter name "blocked_wan"
+		meta nfproto ipv4 update @blocked_wan4 { ip daddr }
+		meta nfproto ipv6 update @blocked_wan6 { ip6 daddr }
+		drop
+	}
+}

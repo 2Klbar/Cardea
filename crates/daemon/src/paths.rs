@@ -14,6 +14,14 @@ pub struct Paths {
     pub sandboxes: PathBuf,
     /// The user's home, for `~/` in settings.
     pub home: PathBuf,
+    /// `$XDG_RUNTIME_DIR/podman/podman.sock`: the libpod REST API (user unit `podman.socket`).
+    pub podman: PathBuf,
+    /// `~/.local/share/applications`: host menu entries of sandbox apps.
+    pub applications: PathBuf,
+    /// `~/.cache/cardea/icons`: app icons copied out of the sandboxes, as PNG.
+    pub icons: PathBuf,
+    /// `~/.config/autostart`: the tray's login entry.
+    pub autostart: PathBuf,
 }
 
 impl Paths {
@@ -29,26 +37,18 @@ impl Paths {
             .ok_or("XDG_RUNTIME_DIR is not set: Cardea needs a user session (systemd --user or a desktop login)")?;
         let config = var("XDG_CONFIG_HOME").unwrap_or_else(|| home.join(".config"));
         let data = var("XDG_DATA_HOME").unwrap_or_else(|| home.join(".local/share"));
+        let cache = var("XDG_CACHE_HOME").unwrap_or_else(|| home.join(".cache"));
         Ok(Paths {
             config: config.join("cardea"),
             data: data.join("cardea"),
             runtime: runtime.join("cardea"),
             sandboxes: home.join("Sandboxes"),
+            podman: runtime.join("podman/podman.sock"),
+            applications: data.join("applications"),
+            icons: cache.join("cardea/icons"),
+            autostart: config.join("autostart"),
             home,
         })
-    }
-
-    /// Demo mode: everything except the socket lives in `<runtime>/demo`, wiped at each demo start, so the
-    /// demo never touches real settings or sandboxes.
-    pub fn demo(self) -> Paths {
-        let root = self.runtime.join("demo");
-        Paths {
-            config: root.join("config"),
-            data: root.join("data"),
-            sandboxes: root.join("Sandboxes"),
-            home: self.home,
-            runtime: self.runtime,
-        }
     }
 
     pub fn socket(&self) -> PathBuf {

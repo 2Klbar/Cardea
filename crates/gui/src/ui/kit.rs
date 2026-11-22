@@ -1,4 +1,4 @@
-//! Small building blocks of the mock-ups: buttons with the focus ring, pills, icons, banners, cards.
+//! Small building blocks of the window: buttons with the focus ring, pills, icons, banners, cards.
 
 use std::sync::OnceLock;
 
@@ -194,7 +194,7 @@ pub fn icon<'a>(icon: Option<&Icon>, name: &str, px: f32) -> El<'a> {
     .into()
 }
 
-/// A section heading with a line above, as in the mock-ups.
+/// A section heading with a line above.
 pub fn section<'a>(app: &App, title: &'a str) -> El<'a> {
     column![rule(app), heading(title, style::H2)]
         .spacing(12)

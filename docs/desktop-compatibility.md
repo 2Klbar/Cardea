@@ -43,6 +43,13 @@ same X server, so Cardea gives each sandbox a choice:
 Limits of **Isolated**: no shared clipboard with X11 apps outside the sandbox (the Wayland clipboard works), and
 apps that expect a full X11 desktop (tray icons, global shortcuts) may misbehave. It needs a Wayland session.
 
+| Base image | Isolated X11 |
+|---|---|
+| Fedora, Arch Linux | The distribution's xwayland-satellite package |
+| Debian 13 | Built during the image build (a few minutes, once) |
+| Ubuntu 24.04 | Built too; may fail, its Rust compiler being older than the one xwayland-satellite needs |
+| Debian 12 | Not available: its Xwayland is too old |
+
 ## Running an app on Wayland first
 
 Many apps described as "X11" can run on Wayland with the right setting. Try this before enabling X11:

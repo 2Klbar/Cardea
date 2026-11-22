@@ -1,4 +1,4 @@
-//! Design tokens of the mock-ups (light and dark) and the styles built on them.
+//! Design tokens (light and dark) and the styles built on them.
 
 use iced::widget::{button as btn, container, text_input};
 use iced::{Background, Border, Color, Shadow, Theme};

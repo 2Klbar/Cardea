@@ -1,22 +1,29 @@
 //! The window: sidebar, page, dialogs.
 
 mod all;
+mod apps;
 mod dialog;
+mod folders;
 pub mod kit;
+mod links;
 mod log;
+mod manage;
+mod network;
 mod overview;
+mod packages;
 mod sandbox;
+mod security;
 mod spark;
 
 use cardea_core::model::Trust;
 use cardea_core::state::State;
 use cardea_proto::Summary;
-use iced::widget::{Space, column, container, opaque, row, stack, text};
+use iced::widget::{Space, column, container, opaque, row, stack};
 use iced::{Alignment, Color, Length};
 
 use crate::app::{App, Link, MAIN_SCROLL, Message, Page, Section};
 use crate::style::{self, Kind, Tone};
-use kit::{El, Size, bold, grow, heading, icon, rule, small, txt};
+use kit::{El, Size, bold, grow, icon, rule, small, txt};
 
 /// How a state looks: glyph, pill text, tone.
 pub fn look(s: &Summary) -> (&'static str, String, Tone) {
@@ -260,9 +267,11 @@ impl App {
                 Some(s) => (self.sandbox_view(s, *section), *section != Section::Log),
                 None => (txt("This sandbox no longer exists.").into(), true),
             },
-            Page::New => (placeholder(self, "New sandbox"), true),
-            Page::Profiles => (placeholder(self, "Profiles"), true),
-            Page::Settings => (placeholder(self, "Settings"), true),
+            Page::New => (self.wizard_view(), true),
+            Page::Profiles => (self.profiles_view(), true),
+            Page::Profile(id) => (self.profile_view(id), true),
+            Page::Import => (self.import_view(), true),
+            Page::Settings => (self.settings_view(), true),
         };
         let content = top
             .push(body)
@@ -287,15 +296,6 @@ impl App {
             Trust::Untrusted => self.pill("! Untrusted", Tone::Warn),
         }
     }
-}
-
-fn placeholder<'a>(app: &App, title: &'a str) -> El<'a> {
-    column![
-        heading(title, style::H1),
-        text("Not available yet.").size(style::BASE).color(app.t.mu)
-    ]
-    .spacing(12)
-    .into()
 }
 
 #[cfg(test)]

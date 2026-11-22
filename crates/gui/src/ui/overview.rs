@@ -76,16 +76,14 @@ impl App {
                 &format!("app:{}", a.id),
                 a.name.as_str(),
                 Kind::Normal,
-                None,
+                s.task.is_none().then(|| self.launch_message(&s.id, a)),
             ));
         }
         let mut right = column![heading("Pinned apps", style::H3)].spacing(8);
         right = if pinned.is_empty() {
             right.push(small("No pinned app.").color(self.t.mu))
         } else {
-            right
-                .push(apps.wrap())
-                .push(small("Opening apps from here is not available yet.").color(self.t.mu))
+            right.push(apps.wrap())
         };
         right = right.push(heading("At a glance", style::H3));
         if let Some(c) = config {

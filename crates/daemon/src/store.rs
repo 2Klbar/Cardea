@@ -105,6 +105,33 @@ pub fn save_config(folder: &Path, config: &Config) -> io::Result<()> {
     write_atomic(&config_file(folder), &to_json(config))
 }
 
+pub fn save_settings(paths: &Paths, settings: &Settings) -> io::Result<()> {
+    fs::create_dir_all(&paths.config)?;
+    write_atomic(&paths.settings(), &to_json(settings))
+}
+
+pub fn user_profile_file(paths: &Paths, id: &str) -> PathBuf {
+    paths.profiles().join(format!("{id}.json"))
+}
+
+pub fn save_user_profile(paths: &Paths, profile: &Config) -> io::Result<()> {
+    fs::create_dir_all(paths.profiles())?;
+    write_atomic(&user_profile_file(paths, &profile.id), &to_json(profile))
+}
+
+/// Bytes of the regular files under `path`; links are not followed.
+pub fn disk_use(path: &Path) -> u64 {
+    let Ok(meta) = fs::symlink_metadata(path) else {
+        return 0;
+    };
+    if !meta.is_dir() {
+        return if meta.is_file() { meta.len() } else { 0 };
+    }
+    fs::read_dir(path)
+        .map(|d| d.flatten().map(|e| disk_use(&e.path())).sum())
+        .unwrap_or(0)
+}
+
 /// Appends a timestamped line to a sandbox log; returns the line as written.
 pub fn append_log(paths: &Paths, id: &str, text: &str) -> String {
     let line = format!(

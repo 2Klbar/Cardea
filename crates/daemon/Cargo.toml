@@ -11,10 +11,12 @@ publish.workspace = true
 cardea-core.workspace = true
 cardea-proto.workspace = true
 cardea-engine.workspace = true
+rustix.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 chrono.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "net", "io-util", "sync", "time", "macros", "signal"] }
+resvg.workspace = true
 
 [lints]
 workspace = true

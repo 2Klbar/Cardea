@@ -273,6 +273,7 @@ pub fn config(c: &Config, kind: Kind) -> Result<(), Invalid> {
 
     // Apps.
     let mut ids = HashSet::new();
+    let mut schemes = HashSet::new();
     for (i, a) in c.apps.iter().enumerate() {
         let at = format!("apps[{i}]");
         r.check(format!("{at}.id"), id(&a.id));
@@ -290,7 +291,26 @@ pub fn config(c: &Config, kind: Kind) -> Result<(), Invalid> {
                 "{folder} is only replaced in per-folder services",
             );
         }
-        env(&mut r, &format!("{at}.env"), a.env.iter());
+        env(&mut r, &format!("{at}.env"), a.env.iter(), profile);
+        if let Some(icon) = &a.icon {
+            r.check(format!("{at}.icon"), text(icon, 200, false));
+        }
+        if let Some(class) = &a.wm_class {
+            r.check(format!("{at}.wm_class"), text(class, 200, false));
+        }
+        for (j, scheme) in a.schemes.iter().enumerate() {
+            let at = format!("{at}.schemes[{j}]");
+            r.check(&at, crate::links::scheme(scheme));
+            if !schemes.insert(scheme) {
+                r.add(&at, format!("{scheme:?} is declared twice in this sandbox"));
+            }
+        }
+        if !a.schemes.is_empty() && a.toolkit == Toolkit::Terminal {
+            r.add(
+                format!("{at}.schemes"),
+                "a terminal app cannot open links: give the schemes to a graphical app",
+            );
+        }
         let needs_x11 = a.toolkit == Toolkit::X11 || a.wants.contains(&Capability::X11);
         if needs_x11 && c.capabilities.x11 == X11::Off {
             r.add(
@@ -327,7 +347,7 @@ pub fn config(c: &Config, kind: Kind) -> Result<(), Invalid> {
                 r.add(format!("{at}.exec[{j}]"), why);
             }
         }
-        env(&mut r, &format!("{at}.env"), s.env.iter());
+        env(&mut r, &format!("{at}.env"), s.env.iter(), profile);
         match (&s.autostart, profile, s.per_folder) {
             (None, _, _) => {}
             (Some(_), true, _) => r.add(format!("{at}.autostart"), local_only("service autostart")),
@@ -350,6 +370,18 @@ pub fn config(c: &Config, kind: Kind) -> Result<(), Invalid> {
                 }
             }
             (Some(Autostart::Single(_)), false, false) => {}
+        }
+    }
+
+    // Links.
+    let mut hosts = HashSet::new();
+    for (i, h) in c.links.allowed.iter().enumerate() {
+        r.check(format!("links.allowed[{i}]"), crate::links::host(h));
+        if !hosts.insert(h) {
+            r.add(
+                format!("links.allowed[{i}]"),
+                format!("{h:?} is listed twice"),
+            );
         }
     }
 
@@ -469,8 +501,26 @@ fn argv(r: &mut Report, at: &str, args: &[String]) {
     }
 }
 
-fn env<'a>(r: &mut Report, at: &str, vars: impl Iterator<Item = (&'a String, &'a String)>) {
+/// Variable names that hold credentials: a profile may come from someone else and never carries one (R10).
+const SECRET_NAMES: [&str; 6] = ["TOKEN", "SECRET", "PASSWORD", "PASSWD", "API_KEY", "APIKEY"];
+
+fn env<'a>(
+    r: &mut Report,
+    at: &str,
+    vars: impl Iterator<Item = (&'a String, &'a String)>,
+    profile: bool,
+) {
     for (k, v) in vars {
+        if profile
+            && SECRET_NAMES
+                .iter()
+                .any(|n| k.to_ascii_uppercase().contains(n))
+        {
+            r.add(
+                format!("{at}.{k}"),
+                format!("{k:?} looks like a secret; profiles never carry one: set it in the sandbox after import"),
+            );
+        }
         let valid = k
             .chars()
             .enumerate()
@@ -830,6 +880,27 @@ mod tests {
     }
 
     #[test]
+    fn profiles_carry_no_secret() {
+        let mut c = Config::defaults(Trust::Work);
+        c.id = "p".into();
+        c.name = "P".into();
+        let mut svc = crate::model::Service {
+            id: "s".into(),
+            name: "S".into(),
+            exec: vec!["s".into()],
+            env: Default::default(),
+            per_folder: false,
+            autostart: None,
+        };
+        svc.env.insert("GITHUB_TOKEN".into(), "x".into());
+        svc.env.insert("LOG_LEVEL".into(), "debug".into());
+        c.services.push(svc);
+        assert_eq!(paths(&c, Kind::Profile), ["services[0].env.GITHUB_TOKEN"]);
+        // A sandbox is the user's own: its secrets are its business.
+        assert!(paths(&c, Kind::Sandbox).is_empty());
+    }
+
+    #[test]
     fn defaults_are_valid() {
         assert_eq!(paths(&sandbox(), Kind::Sandbox), Vec::<String>::new());
         assert_eq!(paths(&sandbox(), Kind::Profile), Vec::<String>::new());
@@ -916,7 +987,12 @@ mod tests {
             mount: "/work/p".into(),
             mode: Mode::Ro,
         });
-        c.firewall.lan.allow[0].to = "192.168.1.10".into();
+        c.firewall.lan.allow.push(crate::model::Rule {
+            to: "192.168.1.10".into(),
+            port: None,
+            proto: None,
+            comment: None,
+        });
         c.autostart = Some(true);
         assert_eq!(
             paths(&c, Kind::Profile),
@@ -1023,7 +1099,7 @@ mod tests {
             "folders": [ { "host": "/home/me/site", "mount": "/work/site", "mode": "rw" } ],
             "protected_paths": { "names": [], "depth": 5 },
             "capabilities": { "wayland": true, "x11": "off", "gpu": false, "kvm": false,
-                              "keyring": { "mode": "auto", "keep": false } },
+                              "keyring": { "mode": "auto", "keep": false }, "clipboard": "shared" },
             "security": { "seccomp": true, "isolated_uid": false, "ram_limit_gb": null },
             "firewall": { "enabled": true, "blocked": "reject",
                           "host": { "mode": "allow", "allow": [], "block": [] },

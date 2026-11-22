@@ -1,6 +1,6 @@
 //! Risky settings of a sandbox, shown as persistent warnings (security R6, R7, R11).
 
-use crate::model::{Config, Trust, X11, ZoneMode};
+use crate::model::{Clipboard, Config, Trust, X11, ZoneMode};
 
 /// One line per risky setting that is on.
 pub fn warnings(c: &Config) -> Vec<String> {
@@ -27,8 +27,17 @@ pub fn warnings(c: &Config) -> Vec<String> {
     if c.capabilities.x11 == X11::Host {
         w.push("host X11: X11 apps of the sandbox can read keystrokes and screens of your other X11 apps".into());
     }
+    if c.trust == Trust::Untrusted && !c.security.isolated_uid {
+        w.push("untrusted sandbox running with your own user ID".into());
+    }
     if c.trust == Trust::Untrusted && !c.home.disposable {
         w.push("untrusted sandbox with a persistent home".into());
+    }
+    if c.trust == Trust::Untrusted
+        && c.capabilities.wayland
+        && c.capabilities.clipboard == Clipboard::Shared
+    {
+        w.push("untrusted sandbox sharing your clipboard: its apps can read what you copy".into());
     }
     w
 }
@@ -44,5 +53,19 @@ mod tests {
         c.firewall.enabled = false;
         c.capabilities.kvm = true;
         assert_eq!(warnings(&c).len(), 2);
+    }
+
+    /// R6: loosening an Untrusted default is a risky setting, so the clients ask first.
+    #[test]
+    fn loosening_untrusted_defaults_warns() {
+        let mut c = Config::defaults(Trust::Untrusted);
+        assert!(warnings(&c).is_empty());
+        c.security.isolated_uid = false;
+        c.home.disposable = false;
+        c.capabilities.clipboard = Clipboard::Shared;
+        let w = warnings(&c);
+        assert!(w.iter().any(|w| w.contains("your own user ID")), "{w:?}");
+        assert!(w.iter().any(|w| w.contains("persistent home")), "{w:?}");
+        assert!(w.iter().any(|w| w.contains("clipboard")), "{w:?}");
     }
 }

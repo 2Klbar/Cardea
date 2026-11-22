@@ -63,6 +63,9 @@ pub struct Config {
     pub setup: Setup,
     pub apps: Vec<App>,
     pub services: Vec<Service>,
+    /// Links: incoming ones reach the apps that declare their scheme, outgoing ones may leave for the host browser.
+    #[serde(default, skip_serializing_if = "Links::is_default")]
+    pub links: Links,
     pub appearance: Appearance,
     /// Sandbox only: start at login.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -94,6 +97,7 @@ impl Config {
             setup: Setup::default(),
             apps: Vec::new(),
             services: Vec::new(),
+            links: Links::default(),
             appearance: Appearance::default(),
             autostart: None,
         };
@@ -164,6 +168,25 @@ impl Folder {
     pub fn name(&self) -> &str {
         self.mount.rsplit('/').next().unwrap_or_default()
     }
+
+    /// The mount point proposed for a host folder: `/work/<its name>`.
+    pub fn default_mount(host: &str) -> String {
+        format!(
+            "/work/{}",
+            host.trim_end_matches('/')
+                .rsplit('/')
+                .next()
+                .unwrap_or_default()
+        )
+    }
+
+    /// The access proposed for a new folder: read-only in an Untrusted sandbox (R6).
+    pub fn default_mode(trust: Trust) -> Mode {
+        match trust {
+            Trust::Work => Mode::Rw,
+            Trust::Untrusted => Mode::Ro,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -209,6 +232,8 @@ pub struct Capabilities {
     pub gpu: bool,
     pub kvm: bool,
     pub keyring: Keyring,
+    /// What the sandbox's apps get of the desktop clipboard (needs `wayland`).
+    pub clipboard: Clipboard,
 }
 
 impl Default for Capabilities {
@@ -219,6 +244,7 @@ impl Default for Capabilities {
             gpu: false,
             kvm: false,
             keyring: Keyring::default(),
+            clipboard: Clipboard::Shared,
         }
     }
 }
@@ -254,6 +280,16 @@ pub enum X11 {
     Isolated,
     /// The host's X server (risky).
     Host,
+}
+
+/// The desktop clipboard, as the Wayland filter gives it. Background access (clipboard managers) is never given.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Clipboard {
+    /// Copy and paste with your other apps, while a sandbox window has the focus.
+    Shared,
+    /// No clipboard between apps (nor drag and drop).
+    Off,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -311,18 +347,13 @@ pub struct Firewall {
 }
 
 impl Default for Firewall {
+    /// No gateway in LAN: the router's admin page and UPnP are a target, and the Internet does not need it.
     fn default() -> Self {
-        let gateway = Rule {
-            to: "gateway".into(),
-            port: None,
-            proto: None,
-            comment: None,
-        };
         Firewall {
             enabled: true,
             blocked: Blocked::Reject,
             host: Zone::new(ZoneMode::Allow, Vec::new()),
-            lan: Zone::new(ZoneMode::Allow, vec![gateway]),
+            lan: Zone::new(ZoneMode::Allow, Vec::new()),
             wan: Zone::new(ZoneMode::Block, Vec::new()),
         }
     }
@@ -481,6 +512,15 @@ pub struct App {
     pub pinned: bool,
     #[serde(default)]
     pub desktop_entry: bool,
+    /// Icon name or absolute path inside the sandbox, for the host menu entry.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub icon: Option<String>,
+    /// Window class or Wayland app id of its windows, so the taskbar groups them under the menu entry.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub wm_class: Option<String>,
+    /// URL schemes it opens (`claude`): a link of one of them clicked on the host reaches this app.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub schemes: Vec<String>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -533,6 +573,41 @@ impl<'de> Deserialize<'de> for Autostart {
                 .map(Autostart::Folders),
             _ => Err(wrong()),
         }
+    }
+}
+
+/// Outgoing links: from the sandbox's apps to the host's default browser, through the link relay.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Links {
+    /// Links may leave the sandbox (applies at the next start).
+    #[serde(default)]
+    pub outgoing: bool,
+    /// Ask before opening each link (always asked for an Untrusted sandbox).
+    #[serde(default = "yes")]
+    pub ask: bool,
+    /// Hosts opened without asking (exact names, never their subdomains); ignored for an Untrusted sandbox.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub allowed: Vec<String>,
+}
+
+fn yes() -> bool {
+    true
+}
+
+impl Default for Links {
+    fn default() -> Self {
+        Links {
+            outgoing: false,
+            ask: true,
+            allowed: Vec::new(),
+        }
+    }
+}
+
+impl Links {
+    fn is_default(&self) -> bool {
+        *self == Links::default()
     }
 }
 

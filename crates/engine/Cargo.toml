@@ -1,6 +1,6 @@
 [package]
 name = "cardea-engine"
-description = "Cardea engines: Podman (REST) and demo"
+description = "Cardea engine: sandboxes on rootless Podman, through its REST API"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -9,10 +9,17 @@ publish.workspace = true
 
 [dependencies]
 cardea-core.workspace = true
-tokio = { workspace = true, features = ["time"] }
+http-body-util.workspace = true
+hyper.workspace = true
+hyper-util.workspace = true
+rustix.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio = { workspace = true, features = ["time", "net", "rt", "io-util", "macros"] }
 
 [lints]
 workspace = true
 
 [dev-dependencies]
-tokio = { workspace = true, features = ["macros", "rt"] }
+tokio = { workspace = true, features = ["macros", "rt", "io-util"] }
+tempfile.workspace = true

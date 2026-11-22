@@ -5,12 +5,13 @@
 | Threat | Protection |
 |---|---|
 | A program reads or damages your personal files | It only sees its own home and the folders you share; sensitive paths inside shared folders (`.git/hooks`, `.git/config`, `.vscode`, `.envrc`…) are mounted read-only |
-| A program reaches services of your computer or devices of your network | Per-sandbox firewall, on by default: no access to your computer, only the gateway on your network ([Network firewall](network.md)) |
+| A program reaches services of your computer or devices of your network | Per-sandbox firewall, on by default: no access to your computer nor to your local network, not even the gateway ([Network firewall](network.md)) |
 | A program gains privileges | Rootless Podman, all capabilities dropped except a minimal set, `no-new-privileges`, seccomp filter on by default |
 | A program in one sandbox reaches another sandbox's data | Each sandbox has its own home; a home can belong to one sandbox only |
 | A program controls Cardea or Podman | Neither Cardea's control socket nor Podman's socket is ever visible in a sandbox |
 | A shared profile does something hidden | Profiles are declarative data, validated, never executed on your computer; risky items are highlighted before import and scripts are shown in full |
 | A firewall failure leaves the network open | The sandbox does not start unless its rules are applied |
+| A link carries an attack into or out of a sandbox | Incoming links reach only the app that declares their scheme, checked and passed as one argument; outgoing links are off by default, http and https only, checked outside the sandbox, rate-limited, and asked by default in a window that no key can confirm ([Links](links.md)) |
 
 ## What it does not protect
 
@@ -23,6 +24,8 @@
 - **Programs without their own sandbox**: browsers and Electron apps run with their internal sandbox disabled
   inside the container; the container remains the boundary.
 - **Allowed network traffic**: the firewall decides where a sandbox can connect, not what it sends there.
+- **Opened links**: a link you open, or one of an allowed host, can carry data from the sandbox to that site in
+  its address; your browser opens it with your own network address and session.
 
 ## Risky settings
 

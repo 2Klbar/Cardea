@@ -1,5 +1,5 @@
 { "id": "system", "name": "System packages (apt)", "scope": "image",
-  "setup": "",
+  "setup": "apt-get update",
   "install": "apt-get install -y --no-install-recommends \"$1${2:+=$2}\"",
   "remove": "apt-get remove -y \"$1\"",
   "update": "apt-get install -y --only-upgrade \"$1\"",

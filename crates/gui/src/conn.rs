@@ -9,7 +9,9 @@ use std::process::{Command, Stdio};
 use std::time::Duration;
 
 use cardea_daemon::paths::Paths;
-use cardea_proto::{Event, Hello, Incoming, Method, PROTOCOL_VERSION, Request, Response};
+
+use crate::app::Pending;
+use cardea_proto::{Error, Event, Hello, Incoming, Method, PROTOCOL_VERSION, Request, Response};
 use iced::futures::channel::mpsc;
 use iced::futures::{SinkExt, Stream, StreamExt};
 use serde_json::Value;
@@ -26,6 +28,28 @@ pub enum Then {
     Hello,
     /// A user action: an error is shown to the user.
     Action,
+    /// A change of the shared folders: an error is shown in the folders page.
+    Folders,
+    /// A change of the firewall: an error is shown in the entry form when it is open.
+    Firewall,
+    Net(String),
+    /// A start, restart, rebuild or launch: a keyring asking for its password opens the password dialog.
+    Unlock(Pending),
+    Detected(String),
+    /// A profile's full configuration (wizard summary, profile detail).
+    Profile(String),
+    /// The wizard's create: the build follows on step 8.
+    Created,
+    Settings,
+    Doctor,
+    Disk(String),
+    /// A profile import, save or delete: back to the Profiles page.
+    ProfilesChanged,
+    Services(String),
+    Schemes(String),
+    Packages(String),
+    /// A package added, removed or updated: the list is read again.
+    PackageChanged(String),
     Ignore,
 }
 
@@ -39,7 +63,7 @@ pub struct Call {
 pub enum Out {
     Connected(Hello, mpsc::UnboundedSender<Call>),
     Event(Event),
-    Reply(Then, Result<Value, String>),
+    Reply(Then, Result<Value, Error>),
     Lost(String),
 }
 
@@ -103,7 +127,7 @@ async fn session_inner(out: &mut mpsc::Sender<Out>) -> Result<(), String> {
                     }
                     Incoming::Response(Response::Err { id, error }) => {
                         let then = id.and_then(|id| pending.remove(&id)).unwrap_or(Then::Ignore);
-                        Out::Reply(then, Err(error.message))
+                        Out::Reply(then, Err(error))
                     }
                 };
                 out.send(msg).await.map_err(|e| e.to_string())?;

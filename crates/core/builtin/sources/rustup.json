@@ -3,4 +3,4 @@
   "install": "rustup toolchain install \"$1\" && { rustup default >/dev/null 2>&1 || rustup default \"$1\"; }",
   "remove": "rustup toolchain uninstall \"$1\"",
   "update": "rustup update \"$1\"",
-  "list": "rustup toolchain list | while read -r t _; do echo \"$t $(rustc +\"$t\" --version | cut -d' ' -f2)\"; done" }
+  "list": "rustup toolchain list | while read -r t _; do echo \"$(echo \"$t\" | sed 's/-[^-]*-unknown-linux-gnu$//') $(rustc +\"$t\" --version | cut -d' ' -f2)\"; done" }

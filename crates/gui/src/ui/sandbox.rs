@@ -5,7 +5,7 @@ use cardea_proto::Summary;
 use iced::widget::{column, container, row};
 use iced::{Alignment, Length};
 
-use super::kit::{El, Size, bold, heading, icon, section, small, txt};
+use super::kit::{El, Size, bold, heading, icon, small, txt};
 use super::{look, short_warning};
 use crate::app::{App, Message, Page, Section};
 use crate::style::{self, Kind, Tone};
@@ -109,12 +109,14 @@ impl App {
         let body = match sec {
             Section::Overview => self.overview_view(s),
             Section::Log => self.log_view(s),
-            other => column![
-                section(self, other.label()),
-                txt("Not available yet.").color(self.t.mu)
-            ]
-            .spacing(12)
-            .into(),
+            Section::Advanced => self.advanced_view(s),
+            Section::Folders => self.folders_view(s),
+            Section::Network => self.network_view(s),
+            Section::Links => self.links_view(s),
+            Section::Apps => self.apps_view(s),
+            Section::Packages => self.packages_view(s),
+            Section::Image => self.image_view(s),
+            Section::Security => self.security_view(s),
         };
         if sec == Section::Log {
             page = page.height(Length::Fill);

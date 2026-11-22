@@ -1,6 +1,6 @@
 //! Trust presets: choosing a trust level sets a group of settings, each of which stays editable.
 
-use crate::model::{Blocked, Config, KeyringMode, Trust};
+use crate::model::{Blocked, Clipboard, Config, KeyringMode, Trust};
 
 /// The settings a trust level sets.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -9,6 +9,7 @@ pub struct Preset {
     pub disposable_home: bool,
     pub blocked: Blocked,
     pub keyring: KeyringMode,
+    pub clipboard: Clipboard,
 }
 
 impl Trust {
@@ -19,12 +20,14 @@ impl Trust {
                 disposable_home: false,
                 blocked: Blocked::Reject,
                 keyring: KeyringMode::Auto,
+                clipboard: Clipboard::Shared,
             },
             Trust::Untrusted => Preset {
                 isolated_uid: true,
                 disposable_home: true,
                 blocked: Blocked::Drop,
                 keyring: KeyringMode::Off,
+                clipboard: Clipboard::Off,
             },
         }
     }
@@ -39,6 +42,7 @@ impl Config {
         self.home.disposable = p.disposable_home;
         self.firewall.blocked = p.blocked;
         self.capabilities.keyring.mode = p.keyring;
+        self.capabilities.clipboard = p.clipboard;
     }
 }
 
@@ -54,6 +58,7 @@ mod tests {
         assert!(c.home.disposable);
         assert_eq!(c.firewall.blocked, Blocked::Drop);
         assert_eq!(c.capabilities.keyring.mode, KeyringMode::Off);
+        assert_eq!(c.capabilities.clipboard, Clipboard::Off);
         // Risky settings are off in both presets.
         assert!(!c.capabilities.kvm && c.security.seccomp && c.firewall.enabled);
         assert_ne!(c.capabilities.x11, X11::Host);

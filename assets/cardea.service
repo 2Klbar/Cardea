@@ -1,0 +1,19 @@
+# Cardea daemon, as a systemd user unit: it starts with the graphical session, so it gets the session's
+# WAYLAND_DISPLAY and DISPLAY for the sandboxes' windows, and starts the sandboxes marked "start at login".
+[Unit]
+Description=Cardea sandboxes daemon
+PartOf=graphical-session.target
+After=graphical-session.target podman.socket
+Wants=podman.socket
+
+[Service]
+ExecStart=%h/.local/bin/cardea daemon
+Restart=on-failure
+RestartSec=2
+# 3: another daemon already serves this session; restarting would only fail again.
+RestartPreventExitStatus=3
+# A restart stops the daemon only: the sandboxes' Wayland filters keep their windows open, like the containers.
+KillMode=process
+
+[Install]
+WantedBy=graphical-session.target

@@ -15,9 +15,15 @@ path = "src/main.rs"
 cardea-core.workspace = true
 cardea-proto.workspace = true
 cardea-daemon.workspace = true
+chrono.workspace = true
 clap.workspace = true
+rustix.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 
 [lints]
 workspace = true
+
+# The RPM package: scripts/build-rpm.sh fills it in.
+[package.metadata.generate-rpm]
+assets = []

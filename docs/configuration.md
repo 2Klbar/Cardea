@@ -29,11 +29,11 @@ A profile cannot contain the local settings of a sandbox:
 | IP addresses in firewall entries | Only references: `host`, `gateway`, `dns` |
 | `identity.hostname`, `autostart`, services' `autostart`, `profile` | Local choices |
 
-To see a built-in profile in full, with every default filled in:
+To see a profile in full, with every default filled in:
 
 ```sh
 cardea profile list
-cardea profile show claude
+cardea profile show empty
 ```
 
 ## What is checked
@@ -48,6 +48,8 @@ cardea profile show claude
 | Package names and versions | Letters, digits and a few punctuation marks; never starting with `-` |
 | Commands (`exec`) | A list of arguments, never a shell line; `{folder}` only as a whole argument of a per-folder service |
 | Apps needing X11 | `capabilities.x11` must be `isolated` or `host` |
+| App schemes (`apps[].schemes`) | 1 to 32 lowercase letters, digits, `+`, `.`, `-`, starting with a letter; never a browser scheme (`http`, `https`, `file`, `ftp`, `ftps`, `ws`, `wss`, `data`, `javascript`, `about`, `blob`, `view-source`, `resource`, `chrome`); each at most once per sandbox; not on a terminal app |
+| Allowed link hosts (`links.allowed`) | Lowercase domain names (non-Latin ones as `xn--…`), no port, no IP address, each once |
 
 Unknown fields are errors, so a typo never goes unnoticed.
 
@@ -74,4 +76,8 @@ The kinds of file are `sandbox`, `profile`, `settings` and `source`.
 | `sandbox_location` | `null` (`~/Sandboxes`) | Where new sandboxes go |
 | `tray_at_login` | `true` | Start the tray icon with your session |
 | `theme` | `system` | `system`, `light` or `dark` |
-| `terminal` | `null` (detected) | Your terminal command, such as `["konsole", "-e"]` |
+| `terminal` | `null` (detected) | Your terminal command, such as `["konsole", "-e"]`; the command to run is added after it |
+
+The manager's Settings page edits this file. A sandbox's own `autostart` (start at login) is set in its
+`sandbox.json`, from its Advanced page or Settings: the daemon starts those sandboxes when it starts with your
+session, except one whose keyring asks for its password.

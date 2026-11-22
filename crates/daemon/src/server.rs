@@ -2,12 +2,18 @@
 //! user's own processes are served (peer UID check, security R1).
 
 use std::fs::{self, DirBuilder, Permissions};
+use std::io::IoSlice;
+use std::mem::MaybeUninit;
+use std::os::fd::{AsFd, BorrowedFd};
 use std::os::unix::fs::{DirBuilderExt, MetadataExt, PermissionsExt};
 use std::path::Path;
 use std::sync::Arc;
 
+use cardea_engine::Exec;
 use cardea_proto::{ErrorCode, Event, Incoming, Method, PROTOCOL_VERSION, Request, Response};
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use rustix::net::{SendAncillaryBuffer, SendAncillaryMessage, SendFlags};
+use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader, Interest};
+use tokio::net::unix::OwnedWriteHalf;
 use tokio::net::{UnixListener, UnixStream};
 use tokio::sync::broadcast;
 
@@ -22,6 +28,9 @@ pub fn own_uid() -> std::io::Result<u32> {
 pub fn authorized(peer_uid: u32, own_uid: u32) -> bool {
     peer_uid == own_uid
 }
+
+/// The error when another daemon already answers on the socket.
+pub const ALREADY_RUNNING: &str = "a Cardea daemon is already running";
 
 /// Creates the runtime directory (`0700`) and binds the socket (`0600`). Fails if a daemon already answers.
 pub fn bind(runtime: &Path) -> Result<UnixListener, String> {
@@ -39,7 +48,7 @@ pub fn bind(runtime: &Path) -> Result<UnixListener, String> {
     let socket = runtime.join("control.sock");
     if socket.exists() {
         if std::os::unix::net::UnixStream::connect(&socket).is_ok() {
-            return Err("a Cardea daemon is already running".into());
+            return Err(ALREADY_RUNNING.into());
         }
         fs::remove_file(&socket)
             .map_err(|e| format!("cannot remove the stale {}: {e}", socket.display()))?;
@@ -74,6 +83,42 @@ async fn send<T: serde::Serialize>(
     let mut line = serde_json::to_vec(msg).expect("protocol types serialize");
     line.push(b'\n');
     w.write_all(&line).await
+}
+
+/// Sends a message with a file descriptor attached to its first byte (`SCM_RIGHTS`).
+async fn send_fd<T: serde::Serialize>(
+    w: &OwnedWriteHalf,
+    msg: &T,
+    fd: BorrowedFd<'_>,
+) -> std::io::Result<()> {
+    let mut line = serde_json::to_vec(msg).expect("protocol types serialize");
+    line.push(b'\n');
+    let socket: &UnixStream = w.as_ref();
+    let mut space = [MaybeUninit::uninit(); rustix::cmsg_space!(ScmRights(1))];
+    let mut sent = 0;
+    while sent < line.len() {
+        socket.writable().await?;
+        let fds = [fd];
+        let result = socket.try_io(Interest::WRITABLE, || {
+            let mut control = SendAncillaryBuffer::new(&mut space);
+            if sent == 0 {
+                control.push(SendAncillaryMessage::ScmRights(&fds));
+            }
+            rustix::net::sendmsg(
+                socket,
+                &[IoSlice::new(&line[sent..])],
+                &mut control,
+                SendFlags::empty(),
+            )
+            .map_err(std::io::Error::from)
+        });
+        match result {
+            Ok(n) => sent += n,
+            Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {}
+            Err(e) => return Err(e),
+        }
+    }
+    Ok(())
 }
 
 /// Waits for the next event of a subscription; never returns without one.
@@ -135,6 +180,19 @@ async fn connection(stream: UnixStream, daemon: Arc<Daemon>, own_uid: u32) -> st
                                  restart the daemon after an update"),
                     )),
                     _ if !greeted => Err(fail(ErrorCode::Version, "send hello first")),
+                    Method::Exec { id, cmd, app, test_wayland, root, workdir, tty, rows, cols, term } => {
+                        let exec = Exec { cmd, root, workdir, tty, rows, cols, term, env: Vec::new() };
+                        match daemon.exec(&id, exec, app, test_wayland).await {
+                            Ok((result, started)) => {
+                                let result = serde_json::to_value(result).expect("serializable");
+                                let response = Response::Ok { id: request.id, result };
+                                send_fd(&writer, &response, started.stream.as_fd()).await?;
+                                // The client now holds the connection; this copy closes here.
+                                continue;
+                            }
+                            Err(error) => Err(error),
+                        }
+                    }
                     method => {
                         let (reply, new_sub) = daemon.handle(method).await;
                         if new_sub.is_some() {
@@ -169,4 +227,29 @@ pub async fn run(daemon: Arc<Daemon>, listener: UnixListener) -> Result<(), Stri
     }
     let _ = fs::remove_file(socket);
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// R1: the runtime directory is `0700`, the socket `0600`, and a second daemon is refused.
+    #[tokio::test]
+    async fn socket_is_private_and_single() {
+        let t = tempfile::tempdir().unwrap();
+        let runtime = t.path().join("cardea");
+        let _listener = bind(&runtime).unwrap();
+        let mode = |p: &Path| fs::metadata(p).unwrap().permissions().mode() & 0o777;
+        assert_eq!(mode(&runtime), 0o700);
+        assert_eq!(mode(&runtime.join("control.sock")), 0o600);
+        assert_eq!(bind(&runtime).unwrap_err(), ALREADY_RUNNING);
+    }
+
+    /// R1: only the daemon's own user is served.
+    #[test]
+    fn only_own_uid_is_authorized() {
+        assert!(authorized(1000, 1000));
+        assert!(!authorized(1001, 1000));
+        assert!(!authorized(0, 1000));
+    }
 }
